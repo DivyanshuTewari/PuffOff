@@ -46,20 +46,20 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-1">
             {nav.map(({ to, label, icon: Icon }) => (
               <Link key={to} to={to}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium outline-none transition-all duration-200 ${
                   active(to)
                     ? 'bg-teal-500/15 text-teal-400 border border-teal-500/25'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'
                 }`}>
                 <Icon size={15} />
                 {label}
               </Link>
             ))}
             <Link to="/emergency"
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium outline-none transition-all duration-200 ${
                 active('/emergency')
                   ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25'
-                  : 'text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/8'
+                  : 'text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/8 border border-transparent'
               }`}>
               <AlertTriangle size={15} />
               Emergency
