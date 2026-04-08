@@ -316,30 +316,28 @@ export default function TrackerPage() {
                         {/* Summary Header */}
                         <div 
                           onClick={() => toggleExpand(group.dateStr)}
-                          className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/[0.04] transition-colors"
+                          className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 cursor-pointer hover:bg-white/[0.04] transition-colors"
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <button className="text-slate-400 hover:text-white transition-colors">
                               {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                             </button>
-                            <span className="font-semibold text-white/90">{group.dateStr}</span>
-                            <div className="flex items-center gap-1.5 hidden sm:flex">
-                              <span className="badge bg-teal-500/20 text-teal-300 capitalize text-[10px]">
-                                {currentAddiction?.customName || currentAddiction?.viceName}
-                              </span>
-                              <span className="badge bg-white/5 text-slate-300 text-[10px]">
-                                {group.entries.length} {group.entries.length === 1 ? 'Entry' : 'Entries'}
-                              </span>
-                            </div>
+                            <span className="font-semibold text-white/90 mr-1">{group.dateStr}</span>
+                            <span className="badge bg-teal-500/20 text-teal-300 capitalize text-[10px]">
+                              {currentAddiction?.customName || currentAddiction?.viceName}
+                            </span>
+                            <span className="badge bg-white/5 text-slate-300 text-[10px]">
+                              {group.entries.length} {group.entries.length === 1 ? 'Entry' : 'Entries'}
+                            </span>
                           </div>
                           
-                          <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center gap-4 text-sm w-full sm:w-auto justify-end">
                             <div className="text-right border-r border-white/10 pr-4">
-                              <span className="text-slate-500 text-[10px] uppercase tracking-wider mr-2 hidden sm:inline">Qty:</span>
+                              <span className="text-slate-500 text-[10px] uppercase tracking-wider mr-2">Qty:</span>
                               <span className="font-medium text-white">{group.totalQty}</span>
                             </div>
                             <div className="text-right">
-                              <span className="text-slate-500 text-[10px] uppercase tracking-wider mr-2 hidden sm:inline">Spent:</span>
+                              <span className="text-slate-500 text-[10px] uppercase tracking-wider mr-2">Spent:</span>
                               <span className="font-medium text-red-400">-{currencySymbol}{group.totalSpent.toFixed(2)}</span>
                             </div>
                           </div>
