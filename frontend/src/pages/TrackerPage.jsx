@@ -323,9 +323,14 @@ export default function TrackerPage() {
                               {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                             </button>
                             <span className="font-semibold text-white/90">{group.dateStr}</span>
-                            <span className="badge bg-teal-500/20 text-teal-300 capitalize text-[10px] hidden sm:inline-block">
-                              {group.entries.length} {group.entries.length === 1 ? 'Entry' : 'Entries'}
-                            </span>
+                            <div className="flex items-center gap-1.5 hidden sm:flex">
+                              <span className="badge bg-teal-500/20 text-teal-300 capitalize text-[10px]">
+                                {currentAddiction?.customName || currentAddiction?.viceName}
+                              </span>
+                              <span className="badge bg-white/5 text-slate-300 text-[10px]">
+                                {group.entries.length} {group.entries.length === 1 ? 'Entry' : 'Entries'}
+                              </span>
+                            </div>
                           </div>
                           
                           <div className="flex items-center gap-4 text-sm">
