@@ -32,6 +32,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  currency: {
+    type: String,
+    default: 'INR',
+  },
   dob: {
     type: Date,
   },

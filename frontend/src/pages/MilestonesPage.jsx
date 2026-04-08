@@ -19,6 +19,15 @@ const MILESTONES = {
     { time: '10 yrs',  title: 'Lung Cancer Risk Halved', desc: 'Lung cancer death risk is about half that of a continuing smoker.',                         icon: Award },
     { time: '15 yrs',  title: 'Heart Disease = Normal',  desc: 'Risk of heart disease equals that of a person who has never smoked.',                       icon: Heart },
   ],
+  chewing_tobacco: [
+    { time: '12 hrs',  title: 'Heart Rate Drops',         desc: 'Your heart rate and blood pressure begin to stabilize back to normal levels.',              icon: Heart },
+    { time: '1 wk',    title: 'Mouth Healing Starts',     desc: 'Small sores begin repairing. Your sense of taste profoundly improves.',                     icon: Activity },
+    { time: '2 wks',   title: 'Gum Tissue Repairs',       desc: 'Inflammation in your gums significantly reduces as tissue begins healing.',                 icon: TrendingUp },
+    { time: '1 mo',    title: 'White Patches Shrink',     desc: 'Precancerous spots like leukoplakia often start to recede and heal.',                       icon: Shield },
+    { time: '3 mo',    title: 'Tooth Decay Risk Drops',   desc: 'Your risk of severe gum disease and tooth loss visibly decreases.',                         icon: Award },
+    { time: '1 yr',    title: 'Oral Cancer Risk Drops',   desc: 'Your overall risk for oral and throat cancers begins to noticeably decline.',               icon: Heart },
+    { time: '5 yrs',   title: 'Oral Cancer Risk Halved',  desc: 'Your risk of developing mouth, throat, or lip cancer is half that of a continuing user.',     icon: Brain },
+  ],
   alcohol: [
     { time: '6 hrs',   title: 'Withdrawal Begins',        desc: 'Body starts processing the absence of alcohol. Symptoms for heavy drinkers may begin.',    icon: AlertTriangle },
     { time: '24 hrs',  title: 'Blood Pressure Drops',     desc: 'Blood pressure starts normalizing as alcohol leaves your system.',                         icon: Activity },

@@ -1,12 +1,13 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../api/api';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Plus, Cigarette, Wine, Leaf, Pill, Zap, Dices, Layers } from 'lucide-react';
+import { ArrowLeft, Plus, Cigarette, Wine, Leaf, Pill, Zap, Dices, Layers, Package } from 'lucide-react';
 
 const VICES = [
-  { id: 'nicotine',   label: 'Nicotine',    icon: Cigarette, desc: 'Cigarettes, vaping, chewing tobacco' },
+  { id: 'nicotine',   label: 'Nicotine',    icon: Cigarette, desc: 'Cigarettes, vaping' },
+  { id: 'chewing_tobacco', label: 'Chewing Tobacco', icon: Package, desc: 'Chewing and spit tobacco, dip, snus' },
   { id: 'alcohol',    label: 'Alcohol',     icon: Wine,      desc: 'Beer, wine, spirits' },
   { id: 'cannabis',   label: 'Cannabis',    icon: Leaf,      desc: 'Weed, THC products' },
   { id: 'opioids',    label: 'Opioids',     icon: Pill,      desc: 'Prescription or illicit opioids' },
@@ -17,8 +18,19 @@ const VICES = [
 
 export default function AddVicePage() {
   const navigate = useNavigate();
-  const [selected, setSelected] = useState('');
-  const [form, setForm] = useState({ customName: '', lastRelapseDate: '', dailySpending: '', currency: 'USD', motivationalNote: '' });
+  const { id } = useParams();
+  const location = useLocation();
+  const isEditing = !!id;
+  const existingAddiction = location.state?.addiction;
+
+  const [selected, setSelected] = useState(existingAddiction?.viceName || '');
+  const [form, setForm] = useState({ 
+    customName: existingAddiction?.customName || '', 
+    lastRelapseDate: existingAddiction?.lastRelapseDate ? existingAddiction.lastRelapseDate.substring(0, 16) : '', 
+    dailySpending: existingAddiction?.dailySpending || '', 
+    currency: existingAddiction?.currency || 'INR', 
+    motivationalNote: existingAddiction?.motivationalNote || '' 
+  });
   const [loading, setLoading] = useState(false);
 
   const onChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
@@ -28,15 +40,22 @@ export default function AddVicePage() {
     if (!selected) { toast.error('Please select a vice type'); return; }
     setLoading(true);
     try {
-      await api.post('/api/addictions', {
+      const payload = {
         viceName: selected,
         customName: form.customName,
         lastRelapseDate: form.lastRelapseDate || new Date().toISOString(),
         dailySpending: parseFloat(form.dailySpending) || 0,
         currency: form.currency,
         motivationalNote: form.motivationalNote,
-      });
-      toast.success('Vice added! Your timer starts now 🎉');
+      };
+      
+      if (isEditing) {
+        await api.put(`/api/addictions/${id}`, payload);
+        toast.success('Vice updated successfully! 📝');
+      } else {
+        await api.post('/api/addictions', payload);
+        toast.success('Vice added! Your timer starts now 🎉');
+      }
       navigate('/dashboard');
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to add vice');
@@ -51,8 +70,8 @@ export default function AddVicePage() {
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-slate-400 hover:text-slate-200 mb-6 transition-colors">
           <ArrowLeft size={17} /> Back
         </button>
-        <h1 className="font-display font-bold text-3xl text-white mb-2">Track a Vice</h1>
-        <p className="text-slate-400 mb-8">Select what you want to quit and we'll start counting your progress.</p>
+        <h1 className="font-display font-bold text-3xl text-white mb-2">{isEditing ? 'Edit Your Vice' : 'Track a Vice'}</h1>
+        <p className="text-slate-400 mb-8">{isEditing ? 'Update your vice details below.' : 'Select what you want to quit and we\'ll start counting your progress.'}</p>
 
         {/* Vice selector */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
@@ -113,7 +132,7 @@ export default function AddVicePage() {
             className={`btn-primary w-full justify-center py-3 text-base ${!selected ? 'opacity-50 cursor-not-allowed' : ''}`}>
             {loading
               ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              : <><Plus size={16} /> Start Tracking</>}
+              : <><Plus size={16} /> {isEditing ? 'Save Changes' : 'Start Tracking'}</>}
           </button>
         </form>
       </motion.div>

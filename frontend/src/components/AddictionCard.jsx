@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Trash2, RefreshCw, DollarSign, AlertTriangle, Cigarette, Wine, Leaf, Pill, Zap, Dices, Layers } from 'lucide-react';
+import { Trash2, RefreshCw, Banknote, AlertTriangle, Cigarette, Wine, Leaf, Pill, Zap, Dices, Layers, Pencil, Package } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import CleanTimer from './CleanTimer';
 import api from '../api/api';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
 
 const VICE_COLORS = {
   nicotine:   { bg: 'from-amber-500/20 to-orange-600/10', border: 'border-amber-500/25', badge: 'bg-amber-500/20 text-amber-300', dot: '#f59e0b' },
+  chewing_tobacco: { bg: 'from-orange-500/20 to-amber-600/10', border: 'border-orange-500/25', badge: 'bg-orange-500/20 text-orange-300', dot: '#ea580c' },
   alcohol:    { bg: 'from-purple-500/20 to-violet-600/10', border: 'border-purple-500/25', badge: 'bg-purple-500/20 text-purple-300', dot: '#a78bfa' },
   cannabis:   { bg: 'from-green-500/20 to-emerald-600/10', border: 'border-green-500/25', badge: 'bg-green-500/20 text-green-300', dot: '#4ade80' },
   opioids:    { bg: 'from-red-500/20 to-rose-600/10', border: 'border-red-500/25', badge: 'bg-red-500/20 text-red-300', dot: '#f87171' },
@@ -15,7 +18,7 @@ const VICE_COLORS = {
   other:      { bg: 'from-slate-500/20 to-slate-600/10', border: 'border-slate-500/25', badge: 'bg-slate-500/20 text-slate-300', dot: '#94a3b8' },
 };
 
-const VICE_ICONS = { nicotine: Cigarette, alcohol: Wine, cannabis: Leaf, opioids: Pill, stimulants: Zap, gambling: Dices, other: Layers };
+const VICE_ICONS = { nicotine: Cigarette, chewing_tobacco: Package, alcohol: Wine, cannabis: Leaf, opioids: Pill, stimulants: Zap, gambling: Dices, other: Layers };
 
 function moneySaved(dailySpending, lastRelapseDate) {
   const daysSober = (Date.now() - new Date(lastRelapseDate).getTime()) / (1000 * 60 * 60 * 24);
@@ -23,11 +26,15 @@ function moneySaved(dailySpending, lastRelapseDate) {
 }
 
 export default function AddictionCard({ addiction, onDelete, onRelapse }) {
+  const { user } = useAuth();
   const [confirmRelapse, setConfirmRelapse] = useState(false);
   const [loading, setLoading] = useState(false);
   const c = VICE_COLORS[addiction.viceName] || VICE_COLORS.other;
   const label = addiction.customName || addiction.viceName;
   const saved = moneySaved(addiction.dailySpending, addiction.lastRelapseDate);
+  const currencyCode = user?.currency || addiction.currency || 'INR';
+  const CURRENCY_SYMBOLS = { USD: '$', EUR: '€', GBP: '£', INR: '₹', CAD: 'C$', AUD: 'A$' };
+  const currencySymbol = CURRENCY_SYMBOLS[currencyCode] || currencyCode;
 
   const handleRelapse = async () => {
     setLoading(true);
@@ -60,7 +67,7 @@ export default function AddictionCard({ addiction, onDelete, onRelapse }) {
       className={`glass-hover bg-gradient-to-br ${c.bg} border ${c.border} p-5 relative overflow-hidden`}
     >
       {/* Glow orb */}
-      <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full opacity-20 blur-2xl"
+      <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full opacity-20 blur-2xl pointer-events-none"
         style={{ background: c.dot }} />
 
       {/* Header */}
@@ -77,9 +84,14 @@ export default function AddictionCard({ addiction, onDelete, onRelapse }) {
             <span className={`badge ${c.badge} capitalize`}>{addiction.viceName}</span>
           </div>
         </div>
-        <button onClick={handleDelete} className="p-1.5 text-slate-500 hover:text-red-400 rounded-lg hover:bg-red-500/10 transition-all">
-          <Trash2 size={15} />
-        </button>
+        <div className="flex items-center gap-1">
+          <Link to={`/edit-vice/${addiction._id}`} state={{ addiction }} className="relative z-10 p-1.5 text-slate-500 hover:text-teal-400 rounded-lg hover:bg-teal-500/10 transition-all" title="Edit Vice">
+            <Pencil size={15} />
+          </Link>
+          <button onClick={handleDelete} className="relative z-10 p-1.5 text-slate-500 hover:text-red-400 rounded-lg hover:bg-red-500/10 transition-all" title="Delete Vice">
+            <Trash2 size={15} />
+          </button>
+        </div>
       </div>
 
       {/* Timer */}
@@ -91,9 +103,9 @@ export default function AddictionCard({ addiction, onDelete, onRelapse }) {
       {/* Money saved */}
       {addiction.dailySpending > 0 && (
         <div className="flex items-center gap-2 mb-4 glass px-3 py-2">
-          <DollarSign size={14} className="text-green-400" />
+          <Banknote size={14} className="text-green-400" />
           <span className="text-sm text-slate-300">
-            <span className="font-bold text-green-400">{addiction.currency || '$'}{saved}</span>
+            <span className="font-bold text-green-400">{currencySymbol}{saved}</span>
             <span className="text-slate-500"> saved so far</span>
           </span>
         </div>

@@ -18,6 +18,7 @@ export default function ProfilePage() {
     dob: '',
     bio: '',
     emergencyContacts: [],
+    currency: 'INR', // default currency
   });
 
   // Password Form
@@ -35,6 +36,7 @@ export default function ProfilePage() {
         dob: user.dob ? user.dob.substring(0, 10) : '',
         bio: user.bio || '',
         emergencyContacts: user.emergencyContacts || [],
+        currency: user.currency || 'INR',
       });
     }
   }, [user]);
@@ -162,6 +164,18 @@ export default function ProfilePage() {
                   ) : (
                     <p className="text-xs text-slate-500">Pick an image to update your profile picture.</p>
                   )}
+                </div>
+              </div>
+
+              {/* Currency Preference */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Preferred Currency</label>
+                  <select name="currency" value={profileForm.currency} onChange={handleProfileChange} className="input">
+                    {['INR', 'USD', 'EUR', 'GBP', 'CAD', 'AUD'].map(c => (
+                      <option key={c} value={c} className="bg-slate-800 text-white">{c}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

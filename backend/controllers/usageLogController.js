@@ -8,14 +8,22 @@ exports.createLog = async (req, res) => {
     const addiction = await Addiction.findOne({ _id: addictionId, userId: req.user._id });
     if (!addiction) return res.status(404).json({ success: false, message: 'Addiction not found' });
 
+    const logDate = date ? new Date(date) : new Date();
+
     const log = await UsageLog.create({
       userId: req.user._id,
       addictionId,
-      date: date ? new Date(date) : new Date(),
+      date: logDate,
       quantity,
       moneySpent,
       notes,
     });
+
+    // Automatically update the addiction's clean timer if this new log is more recent
+    if (!addiction.lastRelapseDate || logDate > new Date(addiction.lastRelapseDate)) {
+      addiction.lastRelapseDate = logDate;
+      await addiction.save();
+    }
 
     res.status(201).json({ success: true, log });
   } catch (error) {

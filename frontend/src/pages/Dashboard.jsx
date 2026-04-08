@@ -46,9 +46,17 @@ export default function Dashboard() {
     return acc + (days * a.dailySpending);
   }, 0).toFixed(2);
 
-  const totalDays = addictions.reduce((acc, a) => {
-    return acc + Math.floor((Date.now() - new Date(a.lastRelapseDate).getTime()) / (1000 * 60 * 60 * 24));
-  }, 0);
+  let maxCleanDays = 0;
+  let maxCleanVice = null;
+  if (addictions.length > 0) {
+    const sorted = [...addictions].sort((a, b) => new Date(a.lastRelapseDate).getTime() - new Date(b.lastRelapseDate).getTime());
+    maxCleanVice = sorted[0];
+    maxCleanDays = Math.floor((Date.now() - new Date(maxCleanVice.lastRelapseDate).getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  const currencyCode = user?.currency || 'INR';
+  const CURRENCY_SYMBOLS = { USD: '$', EUR: '€', GBP: '£', INR: '₹', CAD: 'C$', AUD: 'A$' };
+  const currencySymbol = CURRENCY_SYMBOLS[currencyCode] || currencyCode;
 
   return (
     <div className="page">
@@ -77,11 +85,11 @@ export default function Dashboard() {
           </div>
           <div className="glass p-5 bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20">
             <p className="text-slate-400 text-sm mb-1">Total Money Saved</p>
-            <p className="font-display font-black text-4xl text-green-400">${totalSaved}</p>
+            <p className="font-display font-black text-4xl text-green-400">{currencySymbol}{totalSaved}</p>
           </div>
           <div className="glass p-5 bg-gradient-to-br from-violet-500/10 to-violet-600/5 border border-violet-500/20">
-            <p className="text-slate-400 text-sm mb-1">Total Clean Days</p>
-            <p className="font-display font-black text-4xl text-violet-400">{totalDays}</p>
+            <p className="text-slate-400 text-sm mb-1 line-clamp-1">Longest Clean Streak {maxCleanVice && <span className="text-violet-400 font-medium capitalize">({maxCleanVice.customName || maxCleanVice.viceName})</span>}</p>
+            <p className="font-display font-black text-4xl text-violet-400">{maxCleanDays} <span className="text-xl font-normal opacity-70">days</span></p>
           </div>
         </motion.div>
       )}

@@ -9,7 +9,7 @@ const addictionSchema = new mongoose.Schema({
   viceName: {
     type: String,
     required: true,
-    enum: ['nicotine', 'alcohol', 'cannabis', 'opioids', 'stimulants', 'gambling', 'other'],
+    enum: ['nicotine', 'chewing_tobacco', 'alcohol', 'cannabis', 'opioids', 'stimulants', 'gambling', 'other'],
   },
   customName: {
     type: String,
@@ -28,7 +28,7 @@ const addictionSchema = new mongoose.Schema({
   },
   currency: {
     type: String,
-    default: 'USD',
+    default: 'INR',
   },
   isActive: {
     type: Boolean,

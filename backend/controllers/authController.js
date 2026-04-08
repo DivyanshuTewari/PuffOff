@@ -74,7 +74,7 @@ const getMe = async (req, res) => {
     const user = await User.findById(req.user._id);
     res.json({
       success: true,
-      user: { _id: user._id, username: user.username, email: user.email, bio: user.bio, profileImage: user.profileImage, dob: user.dob, emergencyContacts: user.emergencyContacts, createdAt: user.createdAt },
+      user: { _id: user._id, username: user.username, email: user.email, bio: user.bio, profileImage: user.profileImage, dob: user.dob, emergencyContacts: user.emergencyContacts, currency: user.currency, createdAt: user.createdAt },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -84,20 +84,21 @@ const getMe = async (req, res) => {
 // PUT /api/auth/profile
 const updateProfile = async (req, res) => {
   try {
-    const { username, dob, profileImage, bio, emergencyContacts } = req.body;
+    const { username, dob, profileImage, bio, emergencyContacts, currency } = req.body;
     const user = await User.findById(req.user._id);
 
     if (username) user.username = username;
     if (dob !== undefined) user.dob = dob;
     if (profileImage !== undefined) user.profileImage = profileImage;
     if (bio !== undefined) user.bio = bio;
+    if (currency !== undefined) user.currency = currency;
     if (emergencyContacts !== undefined) user.emergencyContacts = emergencyContacts;
 
     await user.save();
 
     res.json({
       success: true,
-      user: { _id: user._id, username: user.username, email: user.email, bio: user.bio, profileImage: user.profileImage, dob: user.dob, emergencyContacts: user.emergencyContacts, createdAt: user.createdAt },
+      user: { _id: user._id, username: user.username, email: user.email, bio: user.bio, profileImage: user.profileImage, dob: user.dob, emergencyContacts: user.emergencyContacts, currency: user.currency, createdAt: user.createdAt },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

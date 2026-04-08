@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const isDevelopment = import.meta.env.DEV;
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://puffoff.onrender.com',
+  baseURL: isDevelopment ? '' : (import.meta.env.VITE_API_URL || 'https://puffoff.onrender.com'),
   withCredentials: true,
 });
 

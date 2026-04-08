@@ -47,6 +47,7 @@ function AppContent() {
         <Route path="/register"   element={<Public><RegisterPage /></Public>} />
         <Route path="/dashboard"  element={<Private><Dashboard /></Private>} />
         <Route path="/add-vice"   element={<Private><AddVicePage /></Private>} />
+        <Route path="/edit-vice/:id" element={<Private><AddVicePage /></Private>} />
         <Route path="/checkin"    element={<Private><CheckInPage /></Private>} />
         <Route path="/milestones" element={<Private><MilestonesPage /></Private>} />
         <Route path="/emergency"  element={<Private><EmergencyPage /></Private>} />
