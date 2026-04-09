@@ -13,6 +13,10 @@ import EmergencyPage from './pages/EmergencyPage';
 import JournalPage from './pages/JournalPage';
 import TrackerPage from './pages/TrackerPage';
 import ProfilePage from './pages/ProfilePage';
+import RescuerListPage from './pages/RescuerListPage';
+import RescuerIntakePage from './pages/RescuerIntakePage';
+import RescuerDashboardPage from './pages/RescuerDashboardPage';
+import RescuerFAB from './components/RescuerFAB';
 
 const Spinner = () => (
   <div className="min-h-screen flex items-center justify-center mesh-bg">
@@ -41,6 +45,7 @@ function AppContent() {
     <div className="min-h-screen mesh-bg">
       <Toaster position="bottom-right" toastOptions={{ duration: 4000, style: { background: '#1e293b', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' } }} />
       {user && <Navbar />}
+      {user && <RescuerFAB />}
       <Routes>
         <Route path="/"           element={<Public><LandingPage /></Public>} />
         <Route path="/login"      element={<Public><LoginPage /></Public>} />
@@ -54,6 +59,9 @@ function AppContent() {
         <Route path="/journal"    element={<Private><JournalPage /></Private>} />
         <Route path="/tracker"    element={<Private><TrackerPage /></Private>} />
         <Route path="/profile"    element={<Private><ProfilePage /></Private>} />
+        <Route path="/rescuer"           element={<Private><RescuerListPage /></Private>} />
+        <Route path="/rescuer/start/:addictionId?" element={<Private><RescuerIntakePage /></Private>} />
+        <Route path="/rescuer/:planId"   element={<Private><RescuerDashboardPage /></Private>} />
         <Route path="*"           element={<Navigate to="/" replace />} />
       </Routes>
     </div>

@@ -52,6 +52,25 @@ exports.deleteLog = async (req, res) => {
   try {
     const log = await UsageLog.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
     if (!log) return res.status(404).json({ success: false, message: 'Log not found' });
+
+    // Recompute lastRelapseDate so the clean streak on the Dashboard stays accurate.
+    // Find the most recent remaining log for this addiction after the deletion.
+    const mostRecentLog = await UsageLog.findOne(
+      { userId: req.user._id, addictionId: log.addictionId },
+      null,
+      { sort: { date: -1 } }
+    );
+
+    const addiction = await Addiction.findById(log.addictionId);
+    if (addiction) {
+      // If other logs still exist, use the newest one; otherwise fall back to
+      // the addiction's creation date so the clean timer resets from the beginning.
+      addiction.lastRelapseDate = mostRecentLog
+        ? mostRecentLog.date
+        : addiction.createdAt;
+      await addiction.save();
+    }
+
     res.json({ success: true, message: 'Log deleted successfully' });
   } catch (error) {
     console.error(error);

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Trash2, RefreshCw, Banknote, AlertTriangle, Cigarette, Wine, Leaf, Pill, Zap, Dices, Layers, Pencil, Package } from 'lucide-react';
+import { Trash2, RefreshCw, Banknote, AlertTriangle, Cigarette, Wine, Leaf, Pill, Zap, Dices, Layers, Pencil, Package, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import CleanTimer from './CleanTimer';
 import api from '../api/api';
@@ -25,7 +25,7 @@ function moneySaved(dailySpending, lastRelapseDate) {
   return (daysSober * dailySpending).toFixed(2);
 }
 
-export default function AddictionCard({ addiction, onDelete, onRelapse }) {
+export default function AddictionCard({ addiction, onDelete, onRelapse, rescuerPlanId }) {
   const { user } = useAuth();
   const [confirmRelapse, setConfirmRelapse] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -116,6 +116,23 @@ export default function AddictionCard({ addiction, onDelete, onRelapse }) {
         <p className="text-slate-400 text-xs italic mb-4 border-l-2 border-teal-500/40 pl-2">
           "{addiction.motivationalNote}"
         </p>
+      )}
+
+      {/* Rescuer CTA */}
+      {rescuerPlanId ? (
+        <Link
+          to={`/rescuer/${rescuerPlanId}`}
+          className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium text-teal-400 hover:bg-teal-500/10 border border-teal-500/20 hover:border-teal-500/35 transition-all mb-2"
+        >
+          <Activity size={13} /> Go to Rescuer →
+        </Link>
+      ) : (
+        <Link
+          to={`/rescuer/start/${addiction._id}`}
+          className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium text-orange-400 hover:bg-orange-500/10 border border-orange-500/20 hover:border-orange-500/35 transition-all mb-2"
+        >
+          <Activity size={13} /> Set up Rescuer →
+        </Link>
       )}
 
       {/* Relapse button */}

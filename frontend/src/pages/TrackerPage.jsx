@@ -12,6 +12,7 @@ export default function TrackerPage() {
   const [logs, setLogs] = useState([]);
   const [expandedDays, setExpandedDays] = useState({});
   const [loading, setLoading] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   // Form state
   const [logDate, setLogDate] = useState(() => {
@@ -106,10 +107,10 @@ export default function TrackerPage() {
   };
 
   const deleteLog = async (id) => {
-    if (!window.confirm('Delete this log entry?')) return;
     try {
       await api.delete(`/api/usagelogs/${id}`);
       toast.success('Deleted log');
+      setConfirmDeleteId(null);
       fetchLogs();
     } catch (err) {
       toast.error('Failed to delete');
@@ -355,13 +356,27 @@ export default function TrackerPage() {
                                     {log.notes && <span className="text-sm text-slate-400 mt-0.5 truncate" title={log.notes}>{log.notes}</span>}
                                   </div>
                                   
-                                  <div className="flex items-center gap-3 md:gap-4 w-full sm:w-auto">
-                                     <span className="text-sm font-medium text-white/80">{log.quantity} units</span>
-                                     <span className="text-sm font-medium text-red-400/80">-{currencySymbol}{log.moneySpent.toFixed(2)}</span>
-                                     <button onClick={(e) => { e.stopPropagation(); deleteLog(log._id); }} className="ml-auto sm:ml-0 p-1.5 text-slate-500 hover:text-red-400 transition-colors bg-white/5 rounded-lg hover:bg-red-500/10" title="Delete entry">
-                                        <Trash2 size={14} />
-                                     </button>
-                                  </div>
+                                  <div className="flex items-center gap-2 md:gap-3 w-full sm:w-auto">
+                                      <span className="text-sm font-medium text-white/80">{log.quantity} units</span>
+                                      <span className="text-sm font-medium text-red-400/80">-{currencySymbol}{log.moneySpent.toFixed(2)}</span>
+                                      {confirmDeleteId === log._id ? (
+                                        <div className="flex items-center gap-1.5 ml-auto sm:ml-0">
+                                          <button onClick={(e) => { e.stopPropagation(); deleteLog(log._id); }}
+                                            className="px-2 py-1 text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-all">
+                                            Delete
+                                          </button>
+                                          <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
+                                            className="px-2 py-1 text-xs font-semibold bg-white/5 text-slate-400 rounded-lg hover:bg-white/10 transition-all">
+                                            Cancel
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(log._id); }}
+                                          className="ml-auto sm:ml-0 p-1.5 text-slate-500 hover:text-red-400 transition-colors bg-white/5 rounded-lg hover:bg-red-500/10" title="Delete entry">
+                                          <Trash2 size={14} />
+                                        </button>
+                                      )}
+                                   </div>
                                </div>
                             ))}
                           </div>

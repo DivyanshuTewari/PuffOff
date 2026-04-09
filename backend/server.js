@@ -27,6 +27,7 @@ app.use('/api/addictions', require('./routes/addictionRoutes'));
 app.use('/api/checkins', require('./routes/checkInRoutes'));
 app.use('/api/journals', require('./routes/journalRoutes'));
 app.use('/api/usagelogs', require('./routes/usageLogRoutes'));
+app.use('/api/rescuer', require('./routes/rescuerRoutes'));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'PuffOff API is running 🚀' });
