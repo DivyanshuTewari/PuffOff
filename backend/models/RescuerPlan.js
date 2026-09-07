@@ -18,7 +18,8 @@ const weeklyDaySchema = new mongoose.Schema({
   day: { type: Number, required: true }, // 0=Mon, 6=Sun
   date: { type: Date, required: true },
   target: { type: Number, required: true },
-  isIntermittent: { type: Boolean, default: false }, // Phase 3 skip days
+  targetNote: { type: String, default: '' }, // e.g. "Allowed session window", "Rest day"
+  isIntermittent: { type: Boolean, default: false }, // Phase 3 skip days / weekly rest days
 }, { _id: false });
 
 const rescuerPlanSchema = new mongoose.Schema({
@@ -33,8 +34,14 @@ const rescuerPlanSchema = new mongoose.Schema({
     required: true,
   },
   // Intake Data
-  unit: { type: String, required: true, default: 'units' }, // "Sticks", "Pegs", "Packets"
-  baselineDaily: { type: Number, required: true, min: 1 },
+  unit: { type: String, required: true, default: 'units' }, // "Sticks", "Pegs", "Packets", "Cigarettes"
+  frequency: {
+    type: String,
+    enum: ['daily', 'weekly', 'custom'],
+    default: 'daily',
+  },
+  baselineQuantity: { type: Number, required: true, min: 0.01, default: 1 },
+  baselineDaily: { type: Number, required: true, min: 0.01 }, // Normalized daily equivalent
   pricePerUnit: { type: Number, default: 0 },
   currency: { type: String, default: 'INR' },
   firstDoseMinutes: { type: Number, default: 60 }, // mins after waking
@@ -45,6 +52,7 @@ const rescuerPlanSchema = new mongoose.Schema({
   currentDailyTarget: { type: Number, required: true },
   weekStartDate: { type: Date, required: true },
   weeklySchedule: [weeklyDaySchema],
+  holdDays: { type: Number, default: 0 }, // Grace buffer days added during stabilization
 
   // Logs
   logs: [dailyLogSchema],

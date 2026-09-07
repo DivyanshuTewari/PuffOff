@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { AlertTriangle, Wind, Quote, Phone, Heart, RefreshCw, MessageSquare, Users, Leaf, UserPlus, ShieldPlus } from 'lucide-react';
@@ -158,7 +159,7 @@ export default function EmergencyPage() {
                 <div className="glass p-8 text-center border-dashed border-white/10">
                   <Heart size={32} className="text-slate-700 mx-auto mb-4" />
                   <p className="text-slate-400 mb-4">You haven't added any personal supporters yet.</p>
-                  <a href="/profile" className="btn-primary inline-flex">Go to Profile to Add</a>
+                  <Link to="/profile" className="btn-primary inline-flex">Go to Profile to Add</Link>
                 </div>
               ) : (
                 contacts.map((c, i) => (

@@ -1,16 +1,21 @@
 const CheckIn = require('../models/CheckIn');
+const Addiction = require('../models/Addiction');
 
 // POST /api/checkins
 const createCheckIn = async (req, res) => {
   try {
     const { addictionId, urgeMeter, triggers, mood, notes } = req.body;
+
+    const addiction = await Addiction.findOne({ _id: addictionId, userId: req.user._id });
+    if (!addiction) return res.status(404).json({ success: false, message: 'Addiction not found' });
+
     const checkIn = await CheckIn.create({
       userId: req.user._id,
       addictionId,
-      urgeMeter,
-      triggers: triggers || '',
-      mood: mood || 'neutral',
-      notes: notes || '',
+      urgeMeter: Math.max(1, Math.min(10, parseInt(urgeMeter, 10) || 5)),
+      triggers: typeof triggers === 'string' ? triggers.slice(0, 500) : '',
+      mood: typeof mood === 'string' ? mood : 'neutral',
+      notes: typeof notes === 'string' ? notes.slice(0, 1000) : '',
     });
     res.status(201).json({ success: true, checkIn });
   } catch (error) {

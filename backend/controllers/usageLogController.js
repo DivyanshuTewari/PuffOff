@@ -1,5 +1,6 @@
 const UsageLog = require('../models/UsageLog');
 const Addiction = require('../models/Addiction');
+const { syncTrackerToRescuer } = require('../services/syncService');
 
 exports.createLog = async (req, res) => {
   try {
@@ -9,23 +10,39 @@ exports.createLog = async (req, res) => {
     if (!addiction) return res.status(404).json({ success: false, message: 'Addiction not found' });
 
     const logDate = date ? new Date(date) : new Date();
+    const qty = parseFloat(quantity) || 0;
+    if (qty <= 0) {
+      return res.status(400).json({ success: false, message: 'Quantity must be greater than 0' });
+    }
+    const spent = Math.max(0, parseFloat(moneySpent) || 0);
 
     const log = await UsageLog.create({
       userId: req.user._id,
       addictionId,
       date: logDate,
-      quantity,
-      moneySpent,
-      notes,
+      quantity: qty,
+      moneySpent: spent,
+      notes: typeof notes === 'string' ? notes.slice(0, 500) : '',
     });
 
     // Automatically update the addiction's clean timer if this new log is more recent
-    if (!addiction.lastRelapseDate || logDate > new Date(addiction.lastRelapseDate)) {
+    if (!addiction.lastRelapseDate || logDate >= new Date(addiction.lastRelapseDate)) {
       addiction.lastRelapseDate = logDate;
+      addiction.relapseHistory.push({ date: logDate, note: notes || 'Logged via Tracker' });
       await addiction.save();
     }
 
-    res.status(201).json({ success: true, log });
+    // Bidirectional sync: Automatically update active Rescuer Plan for this vice
+    const updatedPlan = await syncTrackerToRescuer(
+      req.user._id,
+      addictionId,
+      logDate,
+      qty,
+      spent,
+      notes
+    );
+
+    res.status(201).json({ success: true, log, addiction, rescuerPlan: updatedPlan });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: 'Error creating usage log' });
@@ -54,24 +71,21 @@ exports.deleteLog = async (req, res) => {
     if (!log) return res.status(404).json({ success: false, message: 'Log not found' });
 
     // Recompute lastRelapseDate so the clean streak on the Dashboard stays accurate.
-    // Find the most recent remaining log for this addiction after the deletion.
     const mostRecentLog = await UsageLog.findOne(
       { userId: req.user._id, addictionId: log.addictionId },
       null,
       { sort: { date: -1 } }
     );
 
-    const addiction = await Addiction.findById(log.addictionId);
+    const addiction = await Addiction.findOne({ _id: log.addictionId, userId: req.user._id });
     if (addiction) {
-      // If other logs still exist, use the newest one; otherwise fall back to
-      // the addiction's creation date so the clean timer resets from the beginning.
       addiction.lastRelapseDate = mostRecentLog
         ? mostRecentLog.date
         : addiction.createdAt;
       await addiction.save();
     }
 
-    res.json({ success: true, message: 'Log deleted successfully' });
+    res.json({ success: true, message: 'Log deleted successfully', addiction });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: 'Error deleting log' });

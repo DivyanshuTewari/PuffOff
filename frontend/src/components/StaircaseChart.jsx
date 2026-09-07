@@ -74,7 +74,7 @@ export default function StaircaseChart({ plan }) {
             tick={{ fill: '#64748b', fontSize: 11 }}
             axisLine={false}
             tickLine={false}
-            allowDecimals={false}
+            allowDecimals={true}
           />
           <Tooltip content={<CustomTooltip />} />
           <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" strokeDasharray="4 4" />

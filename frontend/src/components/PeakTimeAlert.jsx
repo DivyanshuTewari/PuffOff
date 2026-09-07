@@ -6,8 +6,11 @@ import { Bell, X, Droplets } from 'lucide-react';
  * Parses "HH:MM" string (24h) into { hours, minutes }
  */
 function parseTime(timeStr) {
+  if (!timeStr || typeof timeStr !== 'string' || !timeStr.includes(':')) {
+    return { hours: 0, minutes: 0 };
+  }
   const [h, m] = timeStr.split(':').map(Number);
-  return { hours: h, minutes: m };
+  return { hours: isNaN(h) ? 0 : h, minutes: isNaN(m) ? 0 : m };
 }
 
 /**
@@ -15,6 +18,7 @@ function parseTime(timeStr) {
  * Negative if the time has already passed today.
  */
 function minutesUntil(timeStr) {
+  if (!timeStr || typeof timeStr !== 'string' || !timeStr.includes(':')) return -1;
   const now = new Date();
   const { hours, minutes } = parseTime(timeStr);
   const target = new Date(now);

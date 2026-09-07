@@ -17,14 +17,33 @@ const sendTokenCookie = (res, token) => {
 const register = async (req, res) => {
   try {
     const { username, email, password } = req.body;
-    if (!username || !email || !password)
+    if (typeof username !== 'string' || typeof email !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ success: false, message: 'Please provide valid strings for all fields' });
+    }
+
+    const cleanUsername = username.trim();
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanUsername || !cleanEmail || !password) {
       return res.status(400).json({ success: false, message: 'Please fill all fields' });
+    }
 
-    const exists = await User.findOne({ $or: [{ email }, { username }] });
-    if (exists)
+    if (cleanUsername.length < 3 || cleanUsername.length > 30) {
+      return res.status(400).json({ success: false, message: 'Username must be between 3 and 30 characters' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+    }
+
+    const exists = await User.findOne({
+      $or: [{ email: cleanEmail }, { username: cleanUsername }],
+    });
+    if (exists) {
       return res.status(400).json({ success: false, message: 'Username or email already exists' });
+    }
 
-    const user = await User.create({ username, email, password });
+    const user = await User.create({ username: cleanUsername, email: cleanEmail, password });
     const token = generateToken(user._id);
     sendTokenCookie(res, token);
 
@@ -34,6 +53,9 @@ const register = async (req, res) => {
       user: { _id: user._id, username: user.username, email: user.email, createdAt: user.createdAt },
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ success: false, message: 'Username or email already exists' });
+    }
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -42,12 +64,19 @@ const register = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password)
-      return res.status(400).json({ success: false, message: 'Please provide email and password' });
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ success: false, message: 'Please provide valid credentials' });
+    }
 
-    const user = await User.findOne({ email }).select('+password');
-    if (!user || !(await user.comparePassword(password)))
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !password) {
+      return res.status(400).json({ success: false, message: 'Please provide email and password' });
+    }
+
+    const user = await User.findOne({ email: cleanEmail }).select('+password');
+    if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
 
     const token = generateToken(user._id);
     sendTokenCookie(res, token);
@@ -86,13 +115,27 @@ const updateProfile = async (req, res) => {
   try {
     const { username, dob, profileImage, bio, emergencyContacts, currency } = req.body;
     const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    if (username) user.username = username;
+    if (username !== undefined) {
+      if (typeof username !== 'string' || username.trim().length < 3) {
+        return res.status(400).json({ success: false, message: 'Username must be at least 3 characters' });
+      }
+      const cleanUsername = username.trim();
+      if (cleanUsername !== user.username) {
+        const existing = await User.findOne({ username: cleanUsername, _id: { $ne: user._id } });
+        if (existing) {
+          return res.status(400).json({ success: false, message: 'Username is already taken' });
+        }
+        user.username = cleanUsername;
+      }
+    }
+
     if (dob !== undefined) user.dob = dob;
-    if (profileImage !== undefined) user.profileImage = profileImage;
-    if (bio !== undefined) user.bio = bio;
-    if (currency !== undefined) user.currency = currency;
-    if (emergencyContacts !== undefined) user.emergencyContacts = emergencyContacts;
+    if (profileImage !== undefined && typeof profileImage === 'string') user.profileImage = profileImage;
+    if (bio !== undefined && typeof bio === 'string') user.bio = bio.slice(0, 200);
+    if (currency !== undefined && typeof currency === 'string') user.currency = currency;
+    if (Array.isArray(emergencyContacts)) user.emergencyContacts = emergencyContacts;
 
     await user.save();
 
@@ -101,6 +144,9 @@ const updateProfile = async (req, res) => {
       user: { _id: user._id, username: user.username, email: user.email, bio: user.bio, profileImage: user.profileImage, dob: user.dob, emergencyContacts: user.emergencyContacts, currency: user.currency, createdAt: user.createdAt },
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ success: false, message: 'Username is already taken' });
+    }
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -109,9 +155,16 @@ const updateProfile = async (req, res) => {
 const updatePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const user = await User.findById(req.user._id).select('+password');
+    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
+      return res.status(400).json({ success: false, message: 'Invalid password format' });
+    }
 
-    if (!(await user.comparePassword(currentPassword))) {
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+    }
+
+    const user = await User.findById(req.user._id).select('+password');
+    if (!user || !(await user.comparePassword(currentPassword))) {
       return res.status(401).json({ success: false, message: 'Incorrect current password' });
     }
 

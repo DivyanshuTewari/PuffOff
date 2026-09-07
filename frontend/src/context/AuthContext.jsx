@@ -1,50 +1,39 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import api from '../api/api';
+import { createContext, useContext, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchCurrentUser, loginUser, registerUser, logoutUser, setUser } from '../store/slices/authSlice';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
+  const { user, loading } = useSelector((state) => state.auth);
 
   useEffect(() => {
-    const init = async () => {
-      const token = localStorage.getItem('puffoff_token');
-      if (!token) { setLoading(false); return; }
-      try {
-        const res = await api.get('/api/auth/me');
-        setUser(res.data.user);
-      } catch {
-        localStorage.removeItem('puffoff_token');
-      } finally {
-        setLoading(false);
-      }
-    };
-    init();
-  }, []);
+    dispatch(fetchCurrentUser());
+  }, [dispatch]);
 
   const login = async (email, password) => {
-    const res = await api.post('/api/auth/login', { email, password });
-    localStorage.setItem('puffoff_token', res.data.token);
-    setUser(res.data.user);
-    return res.data.user;
+    const result = await dispatch(loginUser({ email, password }));
+    if (loginUser.rejected.match(result)) {
+      throw new Error(result.payload || 'Login failed');
+    }
+    return result.payload;
   };
 
   const register = async (username, email, password) => {
-    const res = await api.post('/api/auth/register', { username, email, password });
-    localStorage.setItem('puffoff_token', res.data.token);
-    setUser(res.data.user);
-    return res.data.user;
+    const result = await dispatch(registerUser({ username, email, password }));
+    if (registerUser.rejected.match(result)) {
+      throw new Error(result.payload || 'Registration failed');
+    }
+    return result.payload;
   };
 
   const logout = async () => {
-    try { await api.post('/api/auth/logout'); } catch {}
-    localStorage.removeItem('puffoff_token');
-    setUser(null);
+    await dispatch(logoutUser());
   };
 
   const updateUser = (updatedUser) => {
-    setUser(updatedUser);
+    dispatch(setUser(updatedUser));
   };
 
   return (

@@ -41,10 +41,18 @@ const getJournal = async (req, res) => {
 // PUT /api/journals/:id
 const updateJournal = async (req, res) => {
   try {
+    const { title, content, mood, tags, isPrivate } = req.body;
+    const allowedUpdates = {};
+    if (title !== undefined) allowedUpdates.title = typeof title === 'string' ? title.trim() : '';
+    if (content !== undefined) allowedUpdates.content = typeof content === 'string' ? content.trim() : '';
+    if (mood !== undefined) allowedUpdates.mood = mood;
+    if (Array.isArray(tags)) allowedUpdates.tags = tags;
+    if (isPrivate !== undefined) allowedUpdates.isPrivate = Boolean(isPrivate);
+
     const journal = await Journal.findOneAndUpdate(
       { _id: req.params.id, userId: req.user._id },
-      req.body,
-      { new: true }
+      { $set: allowedUpdates },
+      { new: true, runValidators: true }
     );
     if (!journal) return res.status(404).json({ success: false, message: 'Entry not found' });
     res.json({ success: true, journal });

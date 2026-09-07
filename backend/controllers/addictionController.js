@@ -1,4 +1,5 @@
 const Addiction = require('../models/Addiction');
+const { syncRelapse, syncDeleteAddiction } = require('../services/syncService');
 
 // GET /api/addictions
 const getAddictions = async (req, res) => {
@@ -32,9 +33,18 @@ const addAddiction = async (req, res) => {
 // PUT /api/addictions/:id
 const updateAddiction = async (req, res) => {
   try {
+    const { viceName, customName, lastRelapseDate, dailySpending, currency, motivationalNote } = req.body;
+    const allowedUpdates = {};
+    if (viceName !== undefined) allowedUpdates.viceName = viceName;
+    if (customName !== undefined) allowedUpdates.customName = customName;
+    if (lastRelapseDate !== undefined) allowedUpdates.lastRelapseDate = lastRelapseDate;
+    if (dailySpending !== undefined) allowedUpdates.dailySpending = Math.max(0, Number(dailySpending) || 0);
+    if (currency !== undefined) allowedUpdates.currency = currency;
+    if (motivationalNote !== undefined) allowedUpdates.motivationalNote = motivationalNote;
+
     const addiction = await Addiction.findOneAndUpdate(
       { _id: req.params.id, userId: req.user._id },
-      req.body,
+      { $set: allowedUpdates },
       { new: true, runValidators: true }
     );
     if (!addiction) return res.status(404).json({ success: false, message: 'Addiction not found' });
@@ -55,7 +65,14 @@ const logRelapse = async (req, res) => {
     addiction.lastRelapseDate = Date.now();
     await addiction.save();
 
-    res.json({ success: true, addiction });
+    const syncResult = await syncRelapse(req.user._id, addiction._id, note);
+
+    res.json({
+      success: true,
+      addiction,
+      usageLog: syncResult?.usageLog || null,
+      rescuerPlan: syncResult?.plan || null,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -70,7 +87,14 @@ const deleteAddiction = async (req, res) => {
       { new: true }
     );
     if (!addiction) return res.status(404).json({ success: false, message: 'Addiction not found' });
-    res.json({ success: true, message: 'Addiction removed from tracking' });
+
+    await syncDeleteAddiction(req.user._id, addiction._id);
+
+    res.json({
+      success: true,
+      message: 'Addiction removed from tracking',
+      addictionId: addiction._id,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -1,24 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useAuth } from '../context/AuthContext';
-import api from '../api/api';
+import { useDispatch, useSelector } from 'react-redux';
 import toast from 'react-hot-toast';
 import {
   ArrowLeft, Plus, Minus, Clock, Activity,
-  AlertTriangle, ChevronDown, ChevronUp, Info,
+  AlertTriangle, Info, Calendar, Sparkles
 } from 'lucide-react';
 
-// Unit options per vice type
+import { fetchAddictions } from '../store/slices/addictionsSlice';
+import { createRescuerPlan, updateRescuerPlan } from '../store/slices/rescuerSlice';
+import api from '../api/api';
+
 const UNIT_OPTIONS = {
-  nicotine:       ['Cigarettes', 'Sticks', 'Puffs'],
-  chewing_tobacco:['Packets', 'Pouches', 'Sachets', 'Grams'],
-  alcohol:        ['Pegs', 'Shots', 'Glasses', 'Bottles', 'Cans'],
-  cannabis:       ['Joints', 'Grams', 'Hits', 'Bowls'],
-  opioids:        ['Doses', 'Tablets', 'mg'],
-  stimulants:     ['Doses', 'Lines', 'Grams'],
-  gambling:       ['Sessions', 'Bets', 'Hours'],
-  other:          ['Units', 'Times', 'Sessions', 'Doses'],
+  nicotine: ['Cigarettes', 'Sticks', 'Packets', 'Puffs'],
+  chewing_tobacco: ['Packets', 'Pouches', 'Sachets', 'Grams'],
+  alcohol: ['Pegs', 'Shots', 'Glasses', 'Bottles', 'Cans'],
+  cannabis: ['Joints', 'Grams', 'Hits', 'Bowls'],
+  opioids: ['Doses', 'Tablets', 'mg'],
+  stimulants: ['Doses', 'Lines', 'Grams'],
+  gambling: ['Sessions', 'Bets', 'Hours'],
+  other: ['Units', 'Times', 'Sessions', 'Doses'],
 };
 
 const FIRST_DOSE_OPTIONS = [
@@ -28,34 +30,36 @@ const FIRST_DOSE_OPTIONS = [
   { label: 'After 1 hour', value: 90 },
 ];
 
-// Medical disclaimer thresholds
 const MEDICAL_THRESHOLDS = {
   alcohol: 8,
   opioids: 0,
   stimulants: 0,
 };
 
-function needsMedicalDisclaimer(viceName, baseline) {
+function needsMedicalDisclaimer(viceName, baseline, frequency) {
   if (viceName === 'opioids' || viceName === 'stimulants') return true;
-  if (viceName === 'alcohol' && baseline >= MEDICAL_THRESHOLDS.alcohol) return true;
+  const dailyRate = frequency === 'weekly' ? baseline / 7 : baseline;
+  if (viceName === 'alcohol' && dailyRate >= MEDICAL_THRESHOLDS.alcohol) return true;
   return false;
 }
 
 export default function RescuerIntakePage() {
   const { addictionId: paramId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const dispatch = useDispatch();
 
-  const [addictions, setAddictions] = useState([]);
+  const user = useSelector((state) => state.auth.user);
+  const { items: addictions, loading: fetchingAddictions } = useSelector((state) => state.addictions);
+
   const [selectedId, setSelectedId] = useState(paramId || '');
   const [selectedAddiction, setSelectedAddiction] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [fetchingAddictions, setFetchingAddictions] = useState(true);
   const [existingPlanId, setExistingPlanId] = useState(null);
 
   const [form, setForm] = useState({
+    frequency: 'daily', // 'daily' | 'weekly'
     unit: 'Cigarettes',
-    baselineDaily: 10,
+    baselineQuantity: 10,
     pricePerUnit: 15,
     currency: user?.currency || 'INR',
     firstDoseMinutes: 45,
@@ -64,122 +68,150 @@ export default function RescuerIntakePage() {
   const [showDisclaimer, setShowDisclaimer] = useState(false);
 
   useEffect(() => {
-    const fetchAll = async () => {
+    dispatch(fetchAddictions());
+  }, [dispatch]);
+
+  useEffect(() => {
+    const fetchExistingPlan = async () => {
+      if (!paramId) return;
       try {
-        const [addRes, planRes] = await Promise.all([
-          api.get('/api/addictions'),
-          paramId ? api.get(`/api/rescuer/${paramId}`).catch(() => null) : Promise.resolve(null)
-        ]);
-
-        const adds = addRes.data.addictions || [];
-        setAddictions(adds);
-
-        let existingPlan = null;
-        if (paramId) {
-          const a = adds.find(x => x._id === paramId);
-          if (a) setSelectedAddiction(a);
-          existingPlan = planRes?.data?.plan;
-        }
-
+        const planRes = await api.get(`/api/rescuer/${paramId}`).catch(() => null);
+        const existingPlan = planRes?.data?.plan;
         if (existingPlan) {
           setExistingPlanId(existingPlan._id);
           setForm({
+            frequency: existingPlan.frequency || 'daily',
             unit: existingPlan.unit || 'Cigarettes',
-            baselineDaily: existingPlan.baselineDaily || 10,
+            baselineQuantity: existingPlan.baselineQuantity || existingPlan.baselineDaily || 10,
             pricePerUnit: existingPlan.pricePerUnit || 0,
             currency: existingPlan.currency || user?.currency || 'INR',
             firstDoseMinutes: existingPlan.firstDoseMinutes || 45,
           });
           if (existingPlan.urgeMap?.length > 0) {
-            // Re-format time to ensure it works with input type='time'
-            setUrgeMap(existingPlan.urgeMap.map(u => ({ time: u.time, label: u.label })));
+            setUrgeMap(existingPlan.urgeMap.map((u) => ({ time: u.time, label: u.label })));
           }
-        } else if (paramId) {
-             const a = adds.find(x => x._id === paramId);
-             if (a) {
-               const units = UNIT_OPTIONS[a.viceName] || UNIT_OPTIONS.other;
-               setForm(f => ({ ...f, unit: units[0], currency: a.currency || 'INR', pricePerUnit: a.dailySpending || 0 }));
-             }
         }
-      } finally {
-        setFetchingAddictions(false);
+      } catch {
+        // ignore
       }
     };
-    fetchAll();
-    // eslint-disable-next-line
-  }, [paramId]);
+    fetchExistingPlan();
+  }, [paramId, user?.currency]);
+
+  useEffect(() => {
+    if (paramId && addictions.length > 0) {
+      const a = addictions.find((x) => x._id === paramId);
+      if (a) {
+        setSelectedAddiction(a);
+        if (!existingPlanId) {
+          const units = UNIT_OPTIONS[a.viceName] || UNIT_OPTIONS.other;
+          setForm((f) => ({
+            ...f,
+            unit: units[0],
+            currency: a.currency || user?.currency || 'INR',
+            pricePerUnit: a.dailySpending || 0,
+          }));
+        }
+      }
+    }
+  }, [paramId, addictions, existingPlanId, user?.currency]);
 
   useEffect(() => {
     if (!selectedId || fetchingAddictions) return;
     if (selectedId !== paramId) {
-      const a = addictions.find(x => x._id === selectedId);
+      const a = addictions.find((x) => x._id === selectedId);
       setSelectedAddiction(a || null);
       if (a) {
         const units = UNIT_OPTIONS[a.viceName] || UNIT_OPTIONS.other;
-        setForm(f => ({ ...f, unit: units[0], currency: a.currency || 'INR', pricePerUnit: a.dailySpending || 0 }));
+        setForm((f) => ({
+          ...f,
+          unit: units[0],
+          currency: a.currency || user?.currency || 'INR',
+          pricePerUnit: a.dailySpending || 0,
+        }));
         setUrgeMap([{ time: '08:00', label: 'Morning' }]);
       }
     }
-  }, [selectedId, addictions, fetchingAddictions, paramId]);
+  }, [selectedId, addictions, fetchingAddictions, paramId, user?.currency]);
 
-  // Show disclaimer when vice or baseline changes
   useEffect(() => {
     if (!selectedAddiction) return;
-    setShowDisclaimer(needsMedicalDisclaimer(selectedAddiction.viceName, form.baselineDaily));
-  }, [selectedAddiction, form.baselineDaily]);
+    setShowDisclaimer(needsMedicalDisclaimer(selectedAddiction.viceName, form.baselineQuantity, form.frequency));
+  }, [selectedAddiction, form.baselineQuantity, form.frequency]);
 
   const addUrgeTime = () => {
-    if (urgeMap.length >= 6) { toast.error('Maximum 6 peak times'); return; }
-    setUrgeMap(u => [...u, { time: '12:00', label: '' }]);
+    if (urgeMap.length >= 6) {
+      return toast.error('Maximum 6 peak times');
+    }
+    setUrgeMap((u) => [...u, { time: '12:00', label: '' }]);
   };
 
-  const removeUrgeTime = (idx) => setUrgeMap(u => u.filter((_, i) => i !== idx));
+  const removeUrgeTime = (idx) => setUrgeMap((u) => u.filter((_, i) => i !== idx));
 
   const updateUrgeTime = (idx, field, value) => {
-    setUrgeMap(u => u.map((entry, i) => i === idx ? { ...entry, [field]: value } : entry));
+    setUrgeMap((u) => u.map((entry, i) => (i === idx ? { ...entry, [field]: value } : entry)));
+  };
+
+  const handleStepQuantity = (delta) => {
+    setForm((f) => {
+      const step = f.baselineQuantity < 2 ? 0.25 : (f.baselineQuantity < 5 ? 0.5 : 1);
+      const newQty = Math.max(0.1, parseFloat((Number(f.baselineQuantity) + delta * step).toFixed(2)));
+      return { ...f, baselineQuantity: newQty };
+    });
   };
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedId) { toast.error('Please select a vice'); return; }
-    if (form.baselineDaily < 1) { toast.error('Daily quantity must be at least 1'); return; }
+    if (!selectedId) return toast.error('Please select a vice');
+    const qty = Number(form.baselineQuantity);
+    if (!qty || qty <= 0) return toast.error('Please enter a valid baseline quantity');
+
     setLoading(true);
     try {
       const payload = {
         addictionId: selectedId,
         unit: form.unit,
-        baselineDaily: Number(form.baselineDaily),
+        frequency: form.frequency,
+        baselineQuantity: qty,
+        baselineDaily: form.frequency === 'weekly' ? parseFloat((qty / 7).toFixed(3)) : qty,
         pricePerUnit: Number(form.pricePerUnit) || 0,
         currency: form.currency,
         firstDoseMinutes: Number(form.firstDoseMinutes),
         urgeMap,
       };
-      let res;
+
+      let resultPlan;
       if (existingPlanId) {
-        res = await api.put(`/api/rescuer/${existingPlanId}`, payload);
+        resultPlan = await dispatch(updateRescuerPlan({ id: existingPlanId, data: payload })).unwrap();
         toast.success('Your Rescuer plan has been updated! 🌿');
       } else {
-        res = await api.post('/api/rescuer', payload);
+        resultPlan = await dispatch(createRescuerPlan(payload)).unwrap();
         toast.success('Your Rescuer plan is ready! 🌿');
       }
-      navigate(`/rescuer/${res.data.plan._id}`);
+      navigate(`/rescuer/${resultPlan._id}`);
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Failed to create plan');
+      toast.error(typeof err === 'string' ? err : 'Failed to create plan');
     } finally {
       setLoading(false);
     }
   };
 
   const unitOptions = selectedAddiction
-    ? (UNIT_OPTIONS[selectedAddiction.viceName] || UNIT_OPTIONS.other)
+    ? UNIT_OPTIONS[selectedAddiction.viceName] || UNIT_OPTIONS.other
     : ['Units'];
 
-  const viceName = selectedAddiction?.customName || selectedAddiction?.viceName || '';
+  const isWeekly = form.frequency === 'weekly';
+  const targetWeek1 = isWeekly
+    ? `${(form.baselineQuantity * 0.8).toFixed(1)} ${form.unit}/session (capped session window)`
+    : `${(form.baselineQuantity * 0.8).toFixed(form.baselineQuantity < 3 ? 1 : 0)} ${form.unit}/day`;
 
   return (
     <div className="page max-w-2xl">
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-slate-400 hover:text-slate-200 mb-6 transition-colors">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-slate-400 hover:text-slate-200 mb-6 transition-colors"
+        >
           <ArrowLeft size={17} /> Back
         </button>
 
@@ -191,20 +223,21 @@ export default function RescuerIntakePage() {
             </div>
             <div>
               <h1 className="font-display font-bold text-3xl text-white">The Rescuer</h1>
-              <p className="text-slate-400 text-sm">Smart Tapering Engine</p>
+              <p className="text-slate-400 text-sm">Universal Harm-Reduction Tapering Engine</p>
             </div>
           </div>
           <p className="text-slate-400 mt-3 leading-relaxed">
-            Share your baseline and we'll build a personalized reduction plan — gradual, compassionate, and science-backed.
+            Whether you consume 20 packets a day, 1 packet a day, or 1 packet a week, The Rescuer adapts a clinical hyperbolic curve designed to eliminate your cravings comfortably without withdrawal shock.
           </p>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-6">
-
           {/* Step 1: Select Vice */}
           <div className="glass p-6 rounded-2xl border border-white/8">
             <h2 className="font-semibold text-white mb-1 flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 text-xs flex items-center justify-center font-bold">1</span>
+              <span className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 text-xs flex items-center justify-center font-bold">
+                1
+              </span>
               Which vice are you tapering?
             </h2>
             <p className="text-slate-500 text-xs mb-4">Select the addiction you want The Rescuer to help with.</p>
@@ -213,15 +246,20 @@ export default function RescuerIntakePage() {
             ) : addictions.length === 0 ? (
               <div className="text-center py-4">
                 <p className="text-slate-400 text-sm">No vices tracked yet.</p>
-                <button type="button" onClick={() => navigate('/add-vice')} className="btn-primary mt-3 text-sm">
+                <button
+                  type="button"
+                  onClick={() => navigate('/add-vice')}
+                  className="btn-primary mt-3 text-sm"
+                >
                   <Plus size={14} /> Add a Vice First
                 </button>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                {addictions.map(a => (
+                {addictions.map((a) => (
                   <button
-                    key={a._id} type="button"
+                    key={a._id}
+                    type="button"
                     onClick={() => setSelectedId(a._id)}
                     className={`p-3 rounded-xl border text-left text-sm transition-all ${
                       selectedId === a._id
@@ -250,72 +288,139 @@ export default function RescuerIntakePage() {
                   <div>
                     <p className="text-amber-300 font-semibold text-sm mb-1">Medical Disclaimer</p>
                     <p className="text-slate-400 text-xs leading-relaxed">
-                      For <span className="font-medium text-amber-300 capitalize">{selectedAddiction.viceName.replace('_', ' ')}</span> at high quantities,
-                      sudden withdrawal can be <strong>dangerous</strong> and may cause severe symptoms.
-                      Please consult a doctor or healthcare professional alongside using this app.
-                      This plan is a supplement, not a replacement for medical advice.
+                      For{' '}
+                      <span className="font-medium text-amber-300 capitalize">
+                        {selectedAddiction.viceName.replace('_', ' ')}
+                      </span>{' '}
+                      at high quantities, sudden withdrawal can be dangerous. Please consult a healthcare professional alongside this tapering plan.
                     </p>
                   </div>
                 </motion.div>
               )}
 
-              {/* Step 2: Unit & Baseline */}
+              {/* Step 2: Consumption Frequency & Baseline */}
               <div className="glass p-6 rounded-2xl border border-white/8 space-y-5">
                 <h2 className="font-semibold text-white flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 text-xs flex items-center justify-center font-bold">2</span>
-                  Your Baseline
+                  <span className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 text-xs flex items-center justify-center font-bold">
+                    2
+                  </span>
+                  Your Consumption Pattern
                 </h2>
+
+                {/* Frequency selector: Daily vs Weekly */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">How often do you consume?</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, frequency: 'daily' }))}
+                      className={`p-3 rounded-xl border text-sm text-center font-medium transition-all ${
+                        form.frequency === 'daily'
+                          ? 'border-teal-500/50 bg-teal-500/15 text-teal-300 shadow-sm'
+                          : 'border-white/8 text-slate-400 hover:bg-white/5'
+                      }`}
+                    >
+                      📅 Daily (every day)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, frequency: 'weekly' }))}
+                      className={`p-3 rounded-xl border text-sm text-center font-medium transition-all ${
+                        form.frequency === 'weekly'
+                          ? 'border-orange-500/50 bg-orange-500/15 text-orange-300 shadow-sm'
+                          : 'border-white/8 text-slate-400 hover:bg-white/5'
+                      }`}
+                    >
+                      🗓️ Weekly / Occasional
+                    </button>
+                  </div>
+                  {isWeekly && (
+                    <p className="text-xs text-orange-300/80 mt-2 flex items-center gap-1.5">
+                      <Sparkles size={13} /> For weekly users, The Rescuer uses an <strong>Interval-Extension Protocol</strong> to stretch clean days between uses.
+                    </p>
+                  )}
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">Unit Type</label>
                     <select
                       value={form.unit}
-                      onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
+                      onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
                       className="input"
                     >
-                      {unitOptions.map(u => <option key={u} value={u} className="bg-slate-800">{u}</option>)}
+                      {unitOptions.map((u) => (
+                        <option key={u} value={u} className="bg-slate-800">
+                          {u}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">Currency</label>
                     <select
                       value={form.currency}
-                      onChange={e => setForm(f => ({ ...f, currency: e.target.value }))}
+                      onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
                       className="input"
                     >
-                      {['INR', 'USD', 'EUR', 'GBP', 'CAD', 'AUD'].map(c => (
-                        <option key={c} value={c} className="bg-slate-800">{c}</option>
+                      {['INR', 'USD', 'EUR', 'GBP', 'CAD', 'AUD'].map((c) => (
+                        <option key={c} value={c} className="bg-slate-800">
+                          {c}
+                        </option>
                       ))}
                     </select>
                   </div>
                 </div>
 
+                {/* Baseline Quantity */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Daily Quantity — how many {form.unit} per day right now?
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-slate-300">
+                      {isWeekly
+                        ? `Weekly Quantity — how many ${form.unit} per week?`
+                        : `Daily Quantity — how many ${form.unit} per day?`}
+                    </label>
+                    {form.unit === 'Packets' && (
+                      <span className="text-[11px] text-teal-400">1 packet ≈ 20 sticks</span>
+                    )}
+                  </div>
+
                   <div className="flex items-center gap-3">
-                    <button type="button"
-                      onClick={() => setForm(f => ({ ...f, baselineDaily: Math.max(1, f.baselineDaily - 1) }))}
+                    <button
+                      type="button"
+                      onClick={() => handleStepQuantity(-1)}
                       className="w-10 h-10 rounded-xl bg-white/6 border border-white/10 text-slate-300 hover:bg-white/12 transition-all flex items-center justify-center"
                     >
                       <Minus size={16} />
                     </button>
                     <input
-                      type="number" min="1" max="200"
-                      value={form.baselineDaily}
-                      onChange={e => setForm(f => ({ ...f, baselineDaily: Math.max(1, Number(e.target.value)) }))}
-                      className="input text-center text-2xl font-bold w-24 py-2"
+                      type="number"
+                      min="0.1"
+                      step="0.1"
+                      max="200"
+                      value={form.baselineQuantity}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          baselineQuantity: Math.max(0.1, Number(e.target.value) || 0),
+                        }))
+                      }
+                      className="input text-center text-2xl font-bold w-28 py-2"
                     />
-                    <button type="button"
-                      onClick={() => setForm(f => ({ ...f, baselineDaily: f.baselineDaily + 1 }))}
+                    <button
+                      type="button"
+                      onClick={() => handleStepQuantity(1)}
                       className="w-10 h-10 rounded-xl bg-white/6 border border-white/10 text-slate-300 hover:bg-white/12 transition-all flex items-center justify-center"
                     >
                       <Plus size={16} />
                     </button>
-                    <span className="text-slate-400 text-sm">{form.unit}/day</span>
+                    <span className="text-slate-400 text-sm">
+                      {form.unit}/{isWeekly ? 'week' : 'day'}
+                    </span>
                   </div>
+                  <p className="text-slate-500 text-xs mt-2">
+                    You can enter fractions like <strong>0.5</strong> or <strong>1.5</strong> if you consume partial packs or bottles.
+                  </p>
                 </div>
 
                 <div>
@@ -327,15 +432,17 @@ export default function RescuerIntakePage() {
                       {form.currency === 'INR' ? '₹' : form.currency === 'USD' ? '$' : form.currency}
                     </span>
                     <input
-                      type="number" min="0" step="0.5"
+                      type="number"
+                      min="0"
+                      step="0.5"
                       value={form.pricePerUnit}
-                      onChange={e => setForm(f => ({ ...f, pricePerUnit: e.target.value }))}
+                      onChange={(e) => setForm((f) => ({ ...f, pricePerUnit: e.target.value }))}
                       className="input pl-10"
                       placeholder="0"
                     />
                   </div>
                   <p className="text-slate-500 text-xs mt-1.5 flex items-center gap-1">
-                    <Info size={11} /> Used to calculate your daily savings
+                    <Info size={11} /> Used to calculate your financial recovery
                   </p>
                 </div>
               </div>
@@ -344,11 +451,13 @@ export default function RescuerIntakePage() {
               <div className="glass p-6 rounded-2xl border border-white/8 space-y-4">
                 <div>
                   <h2 className="font-semibold text-white flex items-center gap-2 mb-1">
-                    <span className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 text-xs flex items-center justify-center font-bold">3</span>
+                    <span className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 text-xs flex items-center justify-center font-bold">
+                      3
+                    </span>
                     Your Urge Map
                   </h2>
                   <p className="text-slate-500 text-xs">
-                    When do you feel the urge most strongly? We'll send alerts 15 min before each peak time.
+                    When do you feel the urge most strongly? We will prepare substitute behaviors before peak times.
                   </p>
                 </div>
 
@@ -359,19 +468,22 @@ export default function RescuerIntakePage() {
                       <input
                         type="time"
                         value={entry.time}
-                        onChange={e => updateUrgeTime(idx, 'time', e.target.value)}
+                        onChange={(e) => updateUrgeTime(idx, 'time', e.target.value)}
                         className="input w-32 text-sm py-2"
                       />
                       <input
                         type="text"
                         value={entry.label}
-                        onChange={e => updateUrgeTime(idx, 'label', e.target.value)}
-                        placeholder="e.g. After lunch"
+                        onChange={(e) => updateUrgeTime(idx, 'label', e.target.value)}
+                        placeholder="e.g. After lunch, Weekend night"
                         className="input flex-1 text-sm py-2"
                       />
                       {urgeMap.length > 1 && (
-                        <button type="button" onClick={() => removeUrgeTime(idx)}
-                          className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
+                        <button
+                          type="button"
+                          onClick={() => removeUrgeTime(idx)}
+                          className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                        >
                           <Minus size={14} />
                         </button>
                       )}
@@ -380,8 +492,11 @@ export default function RescuerIntakePage() {
                 </div>
 
                 {urgeMap.length < 6 && (
-                  <button type="button" onClick={addUrgeTime}
-                    className="flex items-center gap-2 text-teal-400 text-sm hover:text-teal-300 transition-colors">
+                  <button
+                    type="button"
+                    onClick={addUrgeTime}
+                    className="flex items-center gap-2 text-teal-400 text-sm hover:text-teal-300 transition-colors"
+                  >
                     <Plus size={14} /> Add another peak time
                   </button>
                 )}
@@ -391,20 +506,22 @@ export default function RescuerIntakePage() {
               <div className="glass p-6 rounded-2xl border border-white/8 space-y-4">
                 <div>
                   <h2 className="font-semibold text-white flex items-center gap-2 mb-1">
-                    <span className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 text-xs flex items-center justify-center font-bold">4</span>
+                    <span className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 text-xs flex items-center justify-center font-bold">
+                      4
+                    </span>
                     Dependency Level
                   </h2>
                   <p className="text-slate-500 text-xs">
                     How soon after waking do you have your first {form.unit.toLowerCase().replace(/s$/, '')}?
-                    This helps us calibrate your plan.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
-                  {FIRST_DOSE_OPTIONS.map(opt => (
+                  {FIRST_DOSE_OPTIONS.map((opt) => (
                     <button
-                      key={opt.value} type="button"
-                      onClick={() => setForm(f => ({ ...f, firstDoseMinutes: opt.value }))}
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, firstDoseMinutes: opt.value }))}
                       className={`p-3 rounded-xl border text-sm transition-all text-left ${
                         form.firstDoseMinutes === opt.value
                           ? 'border-violet-500/50 bg-violet-500/10 text-violet-300'
@@ -415,39 +532,25 @@ export default function RescuerIntakePage() {
                     </button>
                   ))}
                 </div>
-
-                {form.firstDoseMinutes <= 17 && (
-                  <div className="flex items-start gap-2 bg-rose-500/8 rounded-xl p-3 border border-rose-500/20">
-                    <AlertTriangle size={14} className="text-rose-400 shrink-0 mt-0.5" />
-                    <p className="text-rose-300 text-xs">
-                      High physical dependency detected. Your plan will include extra support and a gentler reduction curve.
-                    </p>
-                  </div>
-                )}
               </div>
 
-              {/* Preview */}
+              {/* Plan Preview */}
               <div className="glass p-5 rounded-2xl border border-teal-500/20 bg-teal-500/5">
-                <p className="text-teal-400 font-semibold text-sm mb-3">📋 Your Plan Preview</p>
+                <p className="text-teal-400 font-semibold text-sm mb-3">📋 Personalized Tapering Curve</p>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Week 1 daily target</span>
-                    <span className="text-white font-semibold">
-                      {Math.ceil(form.baselineDaily * 0.8)} {form.unit}
+                    <span className="text-slate-400">Protocol type</span>
+                    <span className="text-white font-semibold capitalize">
+                      {isWeekly ? 'Interval Extension & Volume Cap' : 'Hyperbolic 15% Reduction'}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Daily saving potential</span>
-                    <span className="text-green-400 font-semibold">
-                      {form.pricePerUnit > 0
-                        ? `${form.currency === 'INR' ? '₹' : '$'}${((form.baselineDaily - Math.ceil(form.baselineDaily * 0.8)) * form.pricePerUnit).toFixed(0)}/day`
-                        : '—'
-                      }
-                    </span>
+                    <span className="text-slate-400">Phase 1 Target</span>
+                    <span className="text-white font-semibold">{targetWeek1}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Peak times tracked</span>
-                    <span className="text-white font-semibold">{urgeMap.length}</span>
+                    <span className="text-slate-400">Slip-up safeguard</span>
+                    <span className="text-teal-300 font-semibold">Hold & Stabilize (Zero punitive penalty)</span>
                   </div>
                 </div>
               </div>
@@ -459,10 +562,14 @@ export default function RescuerIntakePage() {
                 className="btn-primary w-full justify-center py-3.5 text-base"
                 style={{ background: 'linear-gradient(135deg, #f97316, #e11d48)' }}
               >
-                {loading
-                  ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  : <><Activity size={18} /> {existingPlanId ? 'Update My Rescuer Plan' : 'Start My Rescuer Plan'}</>
-                }
+                {loading ? (
+                  <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Activity size={18} />{' '}
+                    {existingPlanId ? 'Update My Rescuer Plan' : 'Start My Rescuer Plan'}
+                  </>
+                )}
               </button>
             </>
           )}
